@@ -1,0 +1,131 @@
+//----------------------------------------------------------------
+// A subkey has been clicked upon. Display the subkey's subkeys
+// and values.
+private void SubkeyListBoxIndexChanged(object sender,
+             System.EventArgs e)
+{
+  String newkey =  m_subkey_list.SelectedItem.ToString();
+  if (m_current_key.Text.Length == 0) m_current_key.Text = newkey;
+  else
+  m_current_key.Text =m_current_key.Text + "\\" + newkey;
+  GetKeysAndValues();
+}
+//------------------------------------------------------------
+// This routine is invoked when the up arrow is clicked on.
+// It takes the listing to the nest higher level.
+private void UpButtonClick(object sender, System.EventArgs e)
+{
+  String new_key = m_current_key.Text;
+  int nDx        = new_key.LastIndexOf('\\');
+  if (nDx == -1) m_current_key.Text = "";
+  else           m_current_key.Text = new_key.Substring(0,nDx);
+  GetKeysAndValues();
+}
+//----------------------------------------------------------------
+private void RootKeyComboboxIndexChanged(object sender,
+                                         System.EventArgs e)
+{
+  m_root_key_listbox.Text =
+         m_root_key_listbox.SelectedItem.ToString();
+  m_current_key.Text = "";    //we're at the root
+  GetKeysAndValues();         //get top level keys
+}
+//----------------------------------------------------------------
+void GetKeysAndValues()
+{
+  RegistryKey rkey =  GetSelectedKey();
+try
+{
+  m_root_key_listbox.Text = rkey.Name.ToString();
+  int nDx = m_root_key_listbox.Text.IndexOf('\\');
+  if (nDx != -1) m_root_key_listbox.Text =
+                 rkey.Name.Substring(0,nDx);
+
+  m_subkey_list.Items.Clear();
+  string[] sknames = rkey.GetSubKeyNames();
+  foreach(String str in sknames ) {
+    String vstring = (String) rkey.GetValue(str,
+                      typeof(string).ToString());
+    m_subkey_list.Items.Add(str);
+  }
+  m_status.Text = "OK";
+  DisplayTypesAndValues(rkey);
+  rkey.Close();
+}
+catch (Exception except)
+{
+  m_status.Text = "Exception occurred " + except.Message;
+}
+}
+//----------------------------------------------------------------
+RegistryKey GetSelectedKey()
+{
+RegistryKey rkey =  null;
+try
+{
+  int nDx = m_root_key_listbox.SelectedIndex;
+  switch (nDx)
+{
+case 0:
+  rkey = Registry.ClassesRoot.OpenSubKey(m_current_key.Text);
+break;
+case 1:
+  rkey = Registry.CurrentConfig.OpenSubKey(m_current_key.Text);
+break;
+case 2:
+  rkey = Registry.CurrentUser.OpenSubKey(m_current_key.Text);
+break;
+case 3:
+  rkey = Registry.LocalMachine.OpenSubKey(m_current_key.Text);
+break;
+case 4:
+  rkey = Registry.Users.OpenSubKey(m_current_key.Text);
+break;
+default:
+break;
+}
+}
+catch (Exception except)
+{
+  m_status.Text = "Exception occured " + except.Message;
+}
+  return rkey;
+}
+//----------------------------------------------------------------
+void DisplayTypesAndValues(RegistryKey rkey)
+{
+  listView1.Items.Clear();
+  string[] SubKeys  = rkey.GetValueNames();
+  foreach(String vstr in SubKeys ) {    //subkey value name
+    object robj =  rkey.GetValue(vstr, typeof(string));
+    String vstring  = "";
+    String vtype = "";
+    GetTypeAndValue(robj, ref vtype, ref vstring);
+    ListViewItem item1 = new ListViewItem();
+    if (vstr == "" ) item1.Text= "Default";
+  else item1.Text= vstr;
+
+    listView1.Items.Add(item1);
+    item1.SubItems.Add(vtype);
+    item1.SubItems.Add(vstring);
+  }
+}
+//----------------------------------------------------------------
+void GetTypeAndValue(object robj, ref String Type,
+                                  ref String Value)
+{
+  Value  = robj.ToString();                   //get object value
+  Type    = robj.GetType().ToString();        //get object type
+  Type    = Type.Substring(7, Type.Length-7); //strip off "System."
+//check if special formatting is necessary
+  if (Type == "Byte[]") {
+    Value = "";
+    byte[] Bytes = (byte[]) robj;
+    foreach(byte bt in Bytes) {
+      string hexval = bt.ToString();
+      if (hexval == "") hexval = "0";
+      Value         = Value + hexval+ " ";
+    }
+  }
+}
+//----------------------------------------------------------------
